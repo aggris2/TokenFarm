@@ -1,17 +1,107 @@
 import React, { Component } from 'react'
+import DaiToken from '../abis/DaiToken.json'
+import CatCoin from '../abis/CatCoin.json'
+import TokenFarm from '../abis/TokenFarm.json'
 import Navbar from './Navbar'
+import Main from './Main'
 import './App.css'
 
+const Web3 = require("web3")
+
 class App extends Component {
+
+  async componentWillMount() {
+    await this.requestAccount()
+    await this.loadWeb3()
+    await this.loadBlockchainData()
+  }
+
+  async loadBlockchainData() {
+    const web3 = window.web3
+
+    const accounts = await web3.eth.getAccounts()
+    this.setState({ account: accounts[0] })
+
+    const networkId = await web3.eth.net.getId()
+
+    // load DaiToken
+    const daiTokenData = DaiToken.networks[networkId]
+    if(daiTokenData) {
+      const daiToken = new web3.eth.Contract(DaiToken.abi, daiTokenData.address)
+      this.setState({ daiToken })
+      let daiTokenBalance = await daiToken.methods.balanceOf(this.state.account).call()
+      this.setState({ daiTokenBalance: daiTokenBalance.toString() })
+    } else {
+      window.alert('DaiToken contract not deployed to detected network.')
+    }
+
+    // load CatCoin
+    const catCoinData = CatCoin.networks[networkId]
+    if(catCoinData) {
+      const catCoin = new web3.eth.Contract(CatCoin.abi, catCoinData.address)
+      this.setState({ catCoin })
+      let catCoinBalance = await catCoin.methods.balanceOf(this.state.account).call()
+      this.setState({ catCoinBalance: catCoinBalance.toString() })
+    } else {
+      window.alert('CatCoin contract not deployed to detected network.')
+    }
+
+    // load TokenFarm
+    const tokenFarmData = TokenFarm.networks[networkId]
+    if(tokenFarmData) {
+      const tokenFarm = new web3.eth.Contract(TokenFarm.abi, tokenFarmData.address)
+      this.setState({ tokenFarm })
+      let stakingBalance = await tokenFarm.methods.stakingBalance(this.state.account).call()
+      this.setState({ stakingBalance: stakingBalance.toString() })
+    } else {
+      window.alert('TokenFarm contract not deployed to detected network.')
+    }
+
+    this.setState({ loading: false })
+  }
+
+  async requestAccount() {
+    await window.ethereum.request({ method: 'eth_requestAccounts' });
+  }
+
+  async loadWeb3() {
+    if(window.ethereum) {
+      window.web3 = new Web3(window.ethereum)
+    }
+    else if(window.web3) {
+      window.web3 = new Web3(window.web3.currentProvider)
+    }
+    else{
+      window.alert('Non-Ethereum browser detected. You should consider trying MetaMask!')
+    }
+  }
 
   constructor(props) {
     super(props)
     this.state = {
-      account: '0x0'
+      account: '0x0',
+      daiToken: {},
+      catCoin: {},
+      tokenFarm: {},
+      daiTokenBalance: '0',
+      catCoinBalance: '0',
+      stakingBalance: '0',
+      loading: true
     }
   }
 
   render() {
+    let content
+    if(this.state.loading){
+      content = <p id="loader" className="text-center">Loading...</p>
+    } else {
+      content = <Main 
+      daiTokenBalance={this.state.daiTokenBalance}
+      catCoinBalance={this.state.catCoinBalance}
+      stakingBalance={this.state.stakingBalance}
+      />
+    }
+
     return (
       <div>
         <Navbar account={this.state.account} />
@@ -26,7 +116,7 @@ class App extends Component {
                 >
                 </a>
 
-                <h1>Hello, World!</h1>
+                {content}
 
               </div>
             </main>
